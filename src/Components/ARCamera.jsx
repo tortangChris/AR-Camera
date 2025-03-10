@@ -1,114 +1,86 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useEffect, useRef } from "react";
+import * as THREE from "three";
+import { XRButton } from "three/examples/jsm/webxr/XRButton.js";
 
 const ARCamera = () => {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const [capturedImage, setCapturedImage] = useState(null);
+  const containerRef = useRef(null);
 
   useEffect(() => {
-    const startCamera = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" }, // Back camera
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(
+      70,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      10
+    );
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+
+    containerRef.current.appendChild(renderer.domElement);
+    containerRef.current.appendChild(XRButton.createButton(renderer));
+
+    const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+
+    const bars = [];
+    const randomNumbers = [5, 3, 8, 6, 2];
+
+    // Generate 3D Bars
+    randomNumbers.forEach((num, index) => {
+      const material = new THREE.MeshBasicMaterial({
+        color: Math.random() * 0xffffff,
+      });
+      const cube = new THREE.Mesh(geometry, material);
+      cube.position.set(index * 0.15 - 0.3, num * 0.05 - 0.3, -1);
+      cube.scale.y = num * 0.1;
+      scene.add(cube);
+      bars.push(cube);
+    });
+
+    // Bubble Sort Animation
+    let i = 0;
+    let j = 0;
+
+    const sortInterval = setInterval(() => {
+      if (i < randomNumbers.length) {
+        if (j < randomNumbers.length - i - 1) {
+          if (randomNumbers[j] > randomNumbers[j + 1]) {
+            // Swap values
+            let temp = randomNumbers[j];
+            randomNumbers[j] = randomNumbers[j + 1];
+            randomNumbers[j + 1] = temp;
+
+            // Animate Bars
+            let tempPos = bars[j].position.y;
+            bars[j].position.y = bars[j + 1].position.y;
+            bars[j + 1].position.y = tempPos;
+
+            let tempScale = bars[j].scale.y;
+            bars[j].scale.y = bars[j + 1].scale.y;
+            bars[j + 1].scale.y = tempScale;
+          }
+          j++;
+        } else {
+          i++;
+          j = 0;
         }
-      } catch (error) {
-        console.error("Error accessing camera:", error);
+      } else {
+        clearInterval(sortInterval);
       }
+    }, 500);
+
+    // Render loop
+    const animate = () => {
+      renderer.setAnimationLoop(() => {
+        renderer.render(scene, camera);
+      });
     };
 
-    startCamera();
-
-    return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
-      }
-    };
+    animate();
   }, []);
 
-  const captureImage = () => {
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
-
-    if (canvas && video) {
-      const context = canvas.getContext("2d");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      setCapturedImage(canvas.toDataURL("image/png")); // Save as Base64
-    }
-  };
-
-  return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>AR Camera</h1>
-
-      <div style={styles.cameraContainer}>
-        <video ref={videoRef} autoPlay playsInline style={styles.video} />
-        <canvas ref={canvasRef} style={{ display: "none" }} />
-      </div>
-
-      <button style={styles.captureButton} onClick={captureImage}>
-        📸 Capture
-      </button>
-
-      {capturedImage && (
-        <div style={styles.imagePreview}>
-          <h3>Captured Image:</h3>
-          <img src={capturedImage} alt="Captured" style={styles.capturedImg} />
-        </div>
-      )}
-    </div>
-  );
-};
-
-const styles = {
-  container: {
-    textAlign: "center",
-    padding: "20px",
-  },
-  title: {
-    fontSize: "24px",
-    fontWeight: "bold",
-  },
-  cameraContainer: {
-    width: "300px",
-    height: "300px",
-    border: "3px solid black",
-    margin: "auto",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    borderRadius: "10px",
-    backgroundColor: "#000",
-  },
-  video: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-  },
-  captureButton: {
-    marginTop: "10px",
-    padding: "10px 20px",
-    fontSize: "18px",
-    fontWeight: "bold",
-    backgroundColor: "#007BFF",
-    color: "white",
-    border: "none",
-    borderRadius: "5px",
-    cursor: "pointer",
-  },
-  imagePreview: {
-    marginTop: "20px",
-  },
-  capturedImg: {
-    width: "300px",
-    borderRadius: "10px",
-    border: "2px solid #000",
-  },
+  return <div ref={containerRef} style={{ width: "100vw", height: "100vh" }} />;
 };
 
 export default ARCamera;
