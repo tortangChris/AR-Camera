@@ -7,6 +7,7 @@ const ARCamera = () => {
   const [started, setStarted] = useState(false);
   const [placed, setPlaced] = useState(false);
   const [status, setStatus] = useState("Not Started");
+  const rendererRef = useRef(null);
 
   useEffect(() => {
     if (!started) return;
@@ -22,19 +23,18 @@ const ARCamera = () => {
 
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
+    rendererRef.current = renderer;
 
     containerRef.current.appendChild(renderer.domElement);
     containerRef.current.appendChild(XRButton.createButton(renderer));
 
     const barGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-    const fontLoader = new THREE.FontLoader();
 
     let bars = [];
-    let texts = [];
     let randomNumbers = [5, 3, 8, 6, 2];
     let objectsPlaced = false;
 
-    // Generate 3D Bars with Numbers
+    // Generate 3D Bars
     randomNumbers.forEach((num, index) => {
       const material = new THREE.MeshBasicMaterial({
         color: Math.random() * 0xffffff,
@@ -45,20 +45,6 @@ const ARCamera = () => {
       bar.scale.x = 0.05;
       scene.add(bar);
       bars.push(bar);
-
-      // Add Numbers
-      const textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-      const textGeometry = new THREE.TextGeometry(`${num}`, {
-        font: new THREE.FontLoader().parse(
-          require("three/examples/fonts/helvetiker_regular.typeface.json")
-        ),
-        size: 0.05,
-        height: 0.01,
-      });
-      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-      textMesh.position.set(index * 0.2 - 0.5, num * 0.1 - 0.15, -1);
-      scene.add(textMesh);
-      texts.push(textMesh);
     });
 
     // Click event to place object
@@ -88,24 +74,24 @@ const ARCamera = () => {
         setStatus(`Comparing ${L[i]} and ${R[j]}`);
         if (L[i] <= R[j]) {
           arr[k] = L[i];
-          animateBar(bars[k], texts[k], L[i]);
+          bars[k].scale.y = L[i] * 0.1;
           i++;
         } else {
           arr[k] = R[j];
-          animateBar(bars[k], texts[k], R[j]);
+          bars[k].scale.y = R[j] * 0.1;
           j++;
         }
         k++;
       }
 
       while (i < n1) {
-        animateBar(bars[k], texts[k], L[i]);
+        bars[k].scale.y = L[i] * 0.1;
         i++;
         k++;
       }
 
       while (j < n2) {
-        animateBar(bars[k], texts[k], R[j]);
+        bars[k].scale.y = R[j] * 0.1;
         j++;
         k++;
       }
@@ -125,19 +111,6 @@ const ARCamera = () => {
       }
     };
 
-    const animateBar = (bar, text, value) => {
-      bar.scale.y = value * 0.1;
-      bar.position.y = value * 0.05 - 0.3;
-      text.position.y = value * 0.1 - 0.15;
-      text.geometry = new THREE.TextGeometry(`${value}`, {
-        font: new THREE.FontLoader().parse(
-          require("three/examples/fonts/helvetiker_regular.typeface.json")
-        ),
-        size: 0.05,
-        height: 0.01,
-      });
-    };
-
     // Render loop
     const animate = () => {
       renderer.setAnimationLoop(() => {
@@ -147,6 +120,16 @@ const ARCamera = () => {
 
     animate();
   }, [started, placed]);
+
+  const captureScreenshot = () => {
+    if (rendererRef.current) {
+      const image = rendererRef.current.domElement.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = image;
+      link.download = "merge_sort_ar.png";
+      link.click();
+    }
+  };
 
   return (
     <div
@@ -189,6 +172,19 @@ const ARCamera = () => {
           }}
         >
           Start
+        </button>
+      ) : null}
+      {placed ? (
+        <button
+          onClick={captureScreenshot}
+          style={{
+            padding: "10px 20px",
+            fontSize: "18px",
+            position: "absolute",
+            bottom: "60px",
+          }}
+        >
+          Capture Screenshot
         </button>
       ) : null}
     </div>
