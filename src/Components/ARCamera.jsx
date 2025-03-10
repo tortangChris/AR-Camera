@@ -6,6 +6,7 @@ const ARCamera = () => {
   const containerRef = useRef(null);
   const [started, setStarted] = useState(false);
   const [placed, setPlaced] = useState(false);
+  const [status, setStatus] = useState("Not Started");
 
   useEffect(() => {
     if (!started) return;
@@ -25,22 +26,39 @@ const ARCamera = () => {
     containerRef.current.appendChild(renderer.domElement);
     containerRef.current.appendChild(XRButton.createButton(renderer));
 
-    const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+    const barGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+    const fontLoader = new THREE.FontLoader();
 
     let bars = [];
+    let texts = [];
     let randomNumbers = [5, 3, 8, 6, 2];
     let objectsPlaced = false;
 
-    // Generate 3D Bars
+    // Generate 3D Bars with Numbers
     randomNumbers.forEach((num, index) => {
       const material = new THREE.MeshBasicMaterial({
         color: Math.random() * 0xffffff,
       });
-      const cube = new THREE.Mesh(geometry, material);
-      cube.position.set(index * 0.15 - 0.3, num * 0.05 - 0.3, -1);
-      cube.scale.y = num * 0.1;
-      scene.add(cube);
-      bars.push(cube);
+      const bar = new THREE.Mesh(barGeometry, material);
+      bar.position.set(index * 0.2 - 0.5, num * 0.05 - 0.3, -1);
+      bar.scale.y = num * 0.1;
+      bar.scale.x = 0.05;
+      scene.add(bar);
+      bars.push(bar);
+
+      // Add Numbers
+      const textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const textGeometry = new THREE.TextGeometry(`${num}`, {
+        font: new THREE.FontLoader().parse(
+          require("three/examples/fonts/helvetiker_regular.typeface.json")
+        ),
+        size: 0.05,
+        height: 0.01,
+      });
+      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+      textMesh.position.set(index * 0.2 - 0.5, num * 0.1 - 0.15, -1);
+      scene.add(textMesh);
+      texts.push(textMesh);
     });
 
     // Click event to place object
@@ -48,40 +66,77 @@ const ARCamera = () => {
       if (!objectsPlaced) {
         setPlaced(true);
         objectsPlaced = true;
+        setStatus("Sorting in progress...");
+
+        // Start Merge Sort
+        mergeSort(randomNumbers, 0, randomNumbers.length - 1);
       }
     });
 
-    // Bubble Sort Animation
-    let i = 0;
-    let j = 0;
+    // Merge Sort Algorithm
+    const merge = (arr, l, m, r) => {
+      let n1 = m - l + 1;
+      let n2 = r - m;
 
-    const sortInterval = setInterval(() => {
-      if (placed && i < randomNumbers.length) {
-        if (j < randomNumbers.length - i - 1) {
-          if (randomNumbers[j] > randomNumbers[j + 1]) {
-            // Swap values
-            let temp = randomNumbers[j];
-            randomNumbers[j] = randomNumbers[j + 1];
-            randomNumbers[j + 1] = temp;
+      let L = arr.slice(l, m + 1);
+      let R = arr.slice(m + 1, r + 1);
 
-            // Animate Bars
-            let tempPos = bars[j].position.y;
-            bars[j].position.y = bars[j + 1].position.y;
-            bars[j + 1].position.y = tempPos;
-
-            let tempScale = bars[j].scale.y;
-            bars[j].scale.y = bars[j + 1].scale.y;
-            bars[j + 1].scale.y = tempScale;
-          }
-          j++;
-        } else {
+      let i = 0,
+        j = 0,
+        k = l;
+      while (i < n1 && j < n2) {
+        setStatus(`Comparing ${L[i]} and ${R[j]}`);
+        if (L[i] <= R[j]) {
+          arr[k] = L[i];
+          animateBar(bars[k], texts[k], L[i]);
           i++;
-          j = 0;
+        } else {
+          arr[k] = R[j];
+          animateBar(bars[k], texts[k], R[j]);
+          j++;
         }
-      } else if (placed) {
-        clearInterval(sortInterval);
+        k++;
       }
-    }, 500);
+
+      while (i < n1) {
+        animateBar(bars[k], texts[k], L[i]);
+        i++;
+        k++;
+      }
+
+      while (j < n2) {
+        animateBar(bars[k], texts[k], R[j]);
+        j++;
+        k++;
+      }
+    };
+
+    const mergeSort = (arr, l, r) => {
+      if (l >= r) return;
+
+      let m = l + Math.floor((r - l) / 2);
+
+      mergeSort(arr, l, m);
+      mergeSort(arr, m + 1, r);
+      merge(arr, l, m, r);
+
+      if (l === 0 && r === arr.length - 1) {
+        setStatus("Sorted Successfully!");
+      }
+    };
+
+    const animateBar = (bar, text, value) => {
+      bar.scale.y = value * 0.1;
+      bar.position.y = value * 0.05 - 0.3;
+      text.position.y = value * 0.1 - 0.15;
+      text.geometry = new THREE.TextGeometry(`${value}`, {
+        font: new THREE.FontLoader().parse(
+          require("three/examples/fonts/helvetiker_regular.typeface.json")
+        ),
+        size: 0.05,
+        height: 0.01,
+      });
+    };
 
     // Render loop
     const animate = () => {
@@ -105,12 +160,22 @@ const ARCamera = () => {
         flexDirection: "column",
       }}
     >
+      <p
+        style={{
+          position: "absolute",
+          top: "10px",
+          color: "white",
+          fontSize: "18px",
+        }}
+      >
+        {status}
+      </p>
       {!started ? (
         <button
           onClick={() => setStarted(true)}
           style={{ padding: "10px 20px", fontSize: "18px" }}
         >
-          Bubble Sort
+          Merge Sort
         </button>
       ) : null}
       {started && !placed ? (
