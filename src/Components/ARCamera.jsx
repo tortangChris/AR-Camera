@@ -1,11 +1,15 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { XRButton } from "three/examples/jsm/webxr/XRButton.js";
 
 const ARCamera = () => {
   const containerRef = useRef(null);
+  const [started, setStarted] = useState(false);
+  const [placed, setPlaced] = useState(false);
 
   useEffect(() => {
+    if (!started) return;
+
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
       70,
@@ -23,8 +27,9 @@ const ARCamera = () => {
 
     const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
 
-    const bars = [];
-    const randomNumbers = [5, 3, 8, 6, 2];
+    let bars = [];
+    let randomNumbers = [5, 3, 8, 6, 2];
+    let objectsPlaced = false;
 
     // Generate 3D Bars
     randomNumbers.forEach((num, index) => {
@@ -38,12 +43,20 @@ const ARCamera = () => {
       bars.push(cube);
     });
 
+    // Click event to place object
+    window.addEventListener("click", () => {
+      if (!objectsPlaced) {
+        setPlaced(true);
+        objectsPlaced = true;
+      }
+    });
+
     // Bubble Sort Animation
     let i = 0;
     let j = 0;
 
     const sortInterval = setInterval(() => {
-      if (i < randomNumbers.length) {
+      if (placed && i < randomNumbers.length) {
         if (j < randomNumbers.length - i - 1) {
           if (randomNumbers[j] > randomNumbers[j + 1]) {
             // Swap values
@@ -65,7 +78,7 @@ const ARCamera = () => {
           i++;
           j = 0;
         }
-      } else {
+      } else if (placed) {
         clearInterval(sortInterval);
       }
     }, 500);
@@ -78,9 +91,43 @@ const ARCamera = () => {
     };
 
     animate();
-  }, []);
+  }, [started, placed]);
 
-  return <div ref={containerRef} style={{ width: "100vw", height: "100vh" }} />;
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        width: "100vw",
+        height: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "column",
+      }}
+    >
+      {!started ? (
+        <button
+          onClick={() => setStarted(true)}
+          style={{ padding: "10px 20px", fontSize: "18px" }}
+        >
+          Bubble Sort
+        </button>
+      ) : null}
+      {started && !placed ? (
+        <button
+          onClick={() => setPlaced(true)}
+          style={{
+            padding: "10px 20px",
+            fontSize: "18px",
+            position: "absolute",
+            bottom: "20px",
+          }}
+        >
+          Start
+        </button>
+      ) : null}
+    </div>
+  );
 };
 
 export default ARCamera;
